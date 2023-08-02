@@ -40,7 +40,7 @@ const BOSS_MARKER = L.icon({
 const KEY_MARKER = L.icon({
   iconUrl: '/svg/markers/key.svg',
   iconSize: [38, 38],
-  iconAnchor: [19, 19],
+  iconAnchor: [19, 38],
 });
 
 const MARKERS = {
@@ -52,9 +52,44 @@ const MARKERS = {
   'Boss Spawn': BOSS_MARKER,
 }
 
+const LAYERS_ICONS = [
+  {
+    name: 'PMC Spawn',
+    img: '/svg/pmc-spawn.svg'
+  },
+  {
+    name: 'Impostor Spawn',
+    img: '/svg/impostor-spawn.svg'
+  },
+  {
+    name: 'Safe Box',
+    img: '/svg/safe-box.svg'
+  },
+  {
+    name: 'Exit',
+    img: '/svg/exit.svg'
+  },
+  {
+    name: 'Key',
+    img: '/svg/key.svg'
+  },
+  {
+    name: 'Boss Spawn',
+    img: '/svg/boss-spawn.svg'
+  },
+]
+
 
 const MapContainer = ({
   imageSrc,
+  markers = {
+    'PMC Spawn': [],
+    'Impostor Spawn': [],
+    'Safe Box': [],
+    'Exit': [],
+    'Key': [],
+    'Boss Spawn': [],
+  }
 }) => {
   const [mapLoaded, setMapLoaded] = useState(false);
   const [lastClickedPosition, setLastClickedPosition] = useState(null);
@@ -68,6 +103,11 @@ const MapContainer = ({
   });
   const [layers, setLayers] = useState(null);
   const [addingMarker, setAddingMarker] = useState(false);
+  const [newMarkerType, setNewMarkerType] = useState(null);
+  const [newMarker, setNewMarker] = useState(null);
+  const [markersData, setMarkersData] = useState(markers);
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [importMapValue, setImportMapValue] = useState('');
 
   const buildMap = () => {
     const image = new Image()
@@ -126,27 +166,30 @@ const MapContainer = ({
         'Boss Spawn': boss_spawn_layer,
       })
 
-      // Add test markers
-      const pmc_spawn = L.marker([388.60974512743627, 539.3828475336322], { icon: PMC_SPAWN_MARKER }).addTo(pmc_spawn_layer);
-      L.circle([388.60974512743627, 539.3828475336322], { radius: 1, color: "red" }).addTo(map);
-      pmc_spawn.on("click", function (e) {
-        if (pmc_spawn.options.opacity === 0.5) {
-          pmc_spawn.setOpacity(1);
-        } else {
-          pmc_spawn.setOpacity(0.5);
-        }
-      });
+      markers['PMC Spawn'].forEach(marker => {
+        L.marker(marker, { icon: PMC_SPAWN_MARKER }).addTo(pmc_spawn_layer);
+      })
 
-      // Add markers to layers
-      L.marker([527.4280359820091, 655.5777927321669], { icon: IMPOSTOR_SPAWN_MARKER }).addTo(impostor_spawn_layer);
-      L.marker([414.97241379310344, 1003.8033674963397], { icon: SAFE_BOX_MARKER }).addTo(safe_box_layer);
-      L.marker([692.9292353823089, 482.0913616398243], { icon: EXIT_MARKER }).addTo(exit_layer);
+      markers['Impostor Spawn'].forEach(marker => {
+        L.marker(marker, { icon: IMPOSTOR_SPAWN_MARKER }).addTo(impostor_spawn_layer);
+      })
 
-      const distance = Math.sqrt(Math.pow(820.9865067466267 - 757.4751124437781, 2) + Math.pow(1001.1625841184388 - 987.1417227456259, 2))
+      markers['Safe Box'].forEach(marker => {
+        L.marker(marker, { icon: SAFE_BOX_MARKER }).addTo(safe_box_layer);
+      })
 
-      L.circle([820.9865067466267, 1001.1625841184388], { radius: distance, color: "red" }).addTo(boss_spawn_layer);
-      L.marker([820.9865067466267, 1001.1625841184388], { icon: BOSS_MARKER }).addTo(boss_spawn_layer);
-      L.marker([561.9844827586207, 857.0429384849124], { icon: KEY_MARKER }).addTo(key_layer);
+      markers['Exit'].forEach(marker => {
+        L.marker(marker, { icon: EXIT_MARKER }).addTo(exit_layer);
+      })
+
+      markers['Key'].forEach(marker => {
+        L.marker(marker, { icon: KEY_MARKER }).addTo(key_layer);
+      })
+
+      markers['Boss Spawn'].forEach(marker => {
+        L.marker(marker.center, { icon: BOSS_MARKER }).addTo(boss_spawn_layer);
+        L.circle(marker.center, { radius: marker.radius, color: "red" }).addTo(boss_spawn_layer);
+      })
 
       // Add layers to map
       pmc_spawn_layer.addTo(map);
@@ -169,6 +212,27 @@ const MapContainer = ({
     };
   }, []);
 
+  useEffect(() => {
+    if (addingMarker && newMarkerType) {
+      if (lastClickedPosition) {
+        if (newMarker == null) {
+          setNewMarker(L.marker(lastClickedPosition, { icon: MARKERS[newMarkerType] }).addTo(map));
+        } else {
+          if (newMarker.options.icon.options.iconUrl !== MARKERS[newMarkerType].options.iconUrl) {
+            newMarker.setIcon(MARKERS[newMarkerType])
+          } else {
+            newMarker.setLatLng(lastClickedPosition);
+          }
+        }
+      }
+    } else {
+      if (newMarker != null) {
+        newMarker.remove();
+        setNewMarker(null);
+      }
+    }
+  }, [addingMarker, lastClickedPosition, newMarkerType])
+
   const toggleLayer = (layerName) => {
     setVisibleLayers({
       ...visibleLayers,
@@ -188,10 +252,76 @@ const MapContainer = ({
     setAddingMarker(true);
   }
 
-  const addMarker = ({ type }) => {
-    if (lastClickedPosition) {
-      const marker = L.marker(lastClickedPosition, { icon: MARKERS[type] }).addTo(map);
+  const handleConfirmMarker = () => {
+    if (newMarker) {
+      const layerName = newMarkerType;
+      const markerPosition = newMarker.getLatLng();
+      const markerData = structuredClone(markersData[layerName]);
+      if (layerName === 'Boss Spawn') {
+        markerData.push({
+          center: [markerPosition.lat, markerPosition.lng],
+          radius: 1
+        });
+      } else {
+        markerData.push([markerPosition.lat, markerPosition.lng]);
+      }
+
+      L.marker(markerPosition, { icon: MARKERS[layerName] }).addTo(layers[layerName]);
+
+      setMarkersData({
+        ...markersData,
+        [layerName]: markerData
+      })
+      setAddingMarker(false);
+      setNewMarkerType(null);
       setLastClickedPosition(null);
+    }
+  }
+
+  const handleExportMap = () => {
+    navigator.clipboard.writeText(JSON.stringify(markersData));
+  }
+
+  const handleImportMap = () => {
+    try {
+      const data = JSON.parse(importMapValue);
+      console.log(data)
+      setMarkersData(data);
+      setShowImportModal(false);
+      layers['PMC Spawn'].clearLayers();
+      layers['Impostor Spawn'].clearLayers();
+      layers['Safe Box'].clearLayers();
+      layers['Exit'].clearLayers();
+      layers['Key'].clearLayers();
+      layers['Boss Spawn'].clearLayers();
+
+      data['PMC Spawn'].forEach(marker => {
+        L.marker(marker, { icon: PMC_SPAWN_MARKER }).addTo(layers['PMC Spawn']);
+      })
+
+      data['Impostor Spawn'].forEach(marker => {
+        L.marker(marker, { icon: IMPOSTOR_SPAWN_MARKER }).addTo(layers['Impostor Spawn']);
+      })
+
+      data['Safe Box'].forEach(marker => {
+        L.marker(marker, { icon: SAFE_BOX_MARKER }).addTo(layers['Safe Box']);
+      })
+
+      data['Exit'].forEach(marker => {
+        L.marker(marker, { icon: EXIT_MARKER }).addTo(layers['Exit']);
+      })
+
+      data['Key'].forEach(marker => {
+        L.marker(marker, { icon: KEY_MARKER }).addTo(layers['Key']);
+      })
+
+      data['Boss Spawn'].forEach(marker => {
+        L.marker(marker.center, { icon: BOSS_MARKER }).addTo(layers['Boss Spawn']);
+        L.circle(marker.center, { radius: marker.radius, color: "red" }).addTo(layers['Boss Spawn']);
+      })
+
+    } catch (e) {
+      console.log(e)
     }
   }
 
@@ -222,9 +352,86 @@ const MapContainer = ({
               <LayersControl
                 toggleLayer={toggleLayer}
                 layers={visibleLayers}
+                collapse={addingMarker}
               />
-              <button className="w-full py-2 px-3 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 rounded-md text-center text-white font-semibold">
+              <button
+                onClick={initializeAddMarker}
+                className="w-full py-2 px-3 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 rounded-md text-center text-white font-semibold"
+              >
                 Add Marker
+              </button>
+              {
+                addingMarker &&
+                <div className="w-full bg-white rounded-md py-2 px-3">
+                  <h2 className="text-center font-semibold text-[#333]">
+                    Select marker type
+                  </h2>
+                  <div className="grid grid-cols-3">
+                    {
+                      LAYERS_ICONS.map((layer, index) => (
+                        <button
+                          className={`flex items-center justify-center w-full h-full py-2 rounded-md transition-all duration-200 ${newMarkerType === layer.name ? "bg-blue-100" : "hover:bg-neutral-200  active:bg-neutral-300"} `}
+                          key={index}
+                          onClick={() => setNewMarkerType(layer.name)}
+                          disabled={newMarkerType === layer.name}
+                        >
+                          <NextImage width={30} height={30} src={layer.img} className="aspec-square max-h-7" />
+                        </button>
+                      ))
+                    }
+                  </div>
+                </div>
+              }
+              {
+                newMarkerType && lastClickedPosition &&
+                <button
+                  onClick={handleConfirmMarker}
+                  className="w-full py-2 px-3 bg-green-600 hover:bg-green-700 active:bg-green-800 rounded-md text-center text-white font-semibold"
+                >
+                  Confirm Marker
+                </button>
+              }
+            </div>
+            {
+              showImportModal &&
+              <div
+                id="import-modal"
+                className="z-[1002] absolute flex items-center justify-center w-full h-full bg-black bg-opacity-25"
+                onClick={(e) => {
+                  if (e.target.id === "import-modal") {
+                    setShowImportModal(false)
+                  }
+                }}
+              >
+                <div className="flex flex-col justify-center p-3 gap-3 w-full max-w-[300px] h-full max-h-[350px] bg-white rounded-lg">
+                  <h2>
+                    Import Map
+                  </h2>
+                  <textarea className="p-3 grow" placeholder="Paste JSON" value={importMapValue} onChange={e => setImportMapValue(e.target.value)} />
+                  <button
+                    onClick={handleImportMap}
+                    className="flex justify-center items-center gap-2 w-full py-1 px-3 bg-green-600 hover:bg-green-700 active:bg-green-800 rounded-md text-center text-white font-semibold"
+                  >
+                    <NextImage width={22} height={22} src="/svg/import.svg" />
+                    <p>Import</p>
+                  </button>
+                </div>
+              </div>
+            }
+            <div className="z-[1001] absolute left-3 bottom-3 flex gap-2">
+              <button
+                onClick={handleExportMap}
+                className="flex gap-2 text-white py-1 px-3 font-semibold bg-[#00000000] hover:bg-[#000000aa] transition-all duration-200 rounded-md"
+              >
+                <NextImage width={22} height={22} src="/svg/export.svg" />
+                <p>Export</p>
+              </button>
+              <button
+                onClick={() => setShowImportModal(true)}
+                className="flex gap-2 text-white py-1 px-3 font-semibold bg-[#00000000] hover:bg-[#000000aa] transition-all duration-200 rounded-md"
+              >
+                <NextImage width={22} height={22} src="/svg/import.svg" />
+                <p>Import</p>
               </button>
             </div>
           </>
