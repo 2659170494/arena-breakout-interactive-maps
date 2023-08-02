@@ -9,7 +9,9 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@next/font": "^13.4.12",
     "autoprefixer": "10.4.14",
+    "leaflet": "^1.9.4",
     "next": "13.4.12",
     "postcss": "8.4.27",
     "react": "18.2.0",
