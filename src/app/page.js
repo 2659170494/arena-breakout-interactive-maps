@@ -26,11 +26,14 @@ const maps = [
 
 export default function Home() {
   return (
-    <main className="grow flex flex-col items-center justify-center w-full gap-10">
-      <h1 className="text-4xl text-white font-semibold font-coolvetica">
-        Arena Breakout Interactive Maps
+    <main className="grow flex flex-col items-center justify-center w-full gap-10 py-4">
+      <h1 className="text-white font-semibold font-coolvetica text-3xl md:text-4xl">
+        Arena Breakout
+        <span className="hidden sm:inline">{" "}</span>
+        <br className="sm:hidden" />
+        Interactive Maps
       </h1>
-      <div className="grid grid-cols-4 place-content-center gap-x-8 px-4 max-w-7xl">
+      <div className="grid grid-cols-2 md:grid-cols-4 place-content-center gap-x-8 gap-y-12 px-8 max-w-7xl">
         {maps.map((map) => (
           <Link href={`/map/${map.path}`} key={map.path} className="group">
             <Image src={map.img} alt={map.name} width={600} height={900} className="w-full scale-100 group-hover:scale-105 transition-all duration-300 aspect-[2/3]" />
